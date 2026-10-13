@@ -18,6 +18,8 @@ pub struct TimelineUi {
     /// egui time (seconds) of the last auto-advance.
     #[serde(default, skip)]
     pub last_time: f64,
+    #[serde(default)]
+    pub onion: bool,
 }
 
 /// Menu checkmark for Window › Timeline.
@@ -50,6 +52,7 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
     let mut close = false;
     let mut toggle_play = false;
     let playing = app.ui.timeline.playing;
+    let mut onion = app.ui.timeline.onion;
     let t = Tokens::get(ctx);
 
     crate::analysis_ui::panel_window(app, ctx, "timeline", tl!("Timeline"), vec2(0.0, 520.0), 660.0, |ui| {
@@ -71,14 +74,39 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
             None => {
                 ui.add_space(8.0);
                 ui.vertical_centered(|ui| {
-                    if crate::widgets::primary_button(ui, tl!("Create Video Timeline"), 200.0).clicked() {
-                        act = Some(("timeline.create", json!({ "duration": 30, "fps": 30.0 })));
+                    if crate::widgets::primary_button(ui, tl!("Create drawing animation"), 200.0).clicked() {
+                        act = Some(("timeline.create", json!({"duration":1,"fps":12.0})));
                     }
                     ui.add_space(4.0);
-                    ui.weak(tl!("30 frames @ 30 fps"));
+                    ui.weak(tl!("Draw frame by frame · 12 fps"));
                 });
             }
             Some(tl) => {
+                let active_video = app.session.active().and_then(|d| d.active_layer.and_then(|id| d.doc.layer(id))).is_some_and(|l| l.video.is_some());
+                ui.horizontal_wrapped(|ui| {
+                    if !active_video && ui.button("Add drawing layer").clicked() {
+                        act = Some(("layer.videoLayers.newBlankVideoLayer", json!({})));
+                    }
+                    if active_video {
+                        for (label, cmd) in [
+                            ("Blank frame", "layer.videoLayers.insertBlankFrame"),
+                            ("Duplicate frame", "layer.videoLayers.duplicateFrame"),
+                            ("Delete frame", "layer.videoLayers.deleteFrame"),
+                        ] {
+                            if ui.button(label).clicked() {
+                                act = Some((cmd, json!({})));
+                            }
+                        }
+                    }
+                    ui.checkbox(&mut onion, "Onion skin");
+                    let mut fps = tl.fps;
+                    if ui.add(egui::DragValue::new(&mut fps).range(1.0..=60.0).suffix(" fps")).changed() {
+                        act = Some(("timeline.setProps", json!({"fps":fps})));
+                    }
+                    if ui.button("Export animation…").clicked() {
+                        act = Some(("file.export.renderVideo", json!({})));
+                    }
+                });
                 ui.horizontal(|ui| {
                     let play_icon = if playing { "pause" } else { "play" };
                     if crate::icons::button(ui, play_icon, 22.0, playing, if playing { tl!("Pause") } else { tl!("Play") }).clicked() {
@@ -120,6 +148,7 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
         }
     });
 
+    app.ui.timeline.onion = onion;
     if close {
         app.ui.timeline.open = false;
         app.ui.timeline.playing = false;
@@ -129,7 +158,21 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
         app.ui.timeline.last_time = ctx.input(|i| i.time);
     }
     if let Some((cmd, p)) = act {
-        let _ = app.run(cmd, p);
+        let previous = app.session.active().and_then(|d| d.doc.timeline.as_ref()).map_or(0, |t| t.current);
+        if let Err(e) = if cmd == "file.export.renderVideo" { app.export_animation() } else { app.run(cmd, p) } {
+            app.ui.status = e;
+        } else {
+            if cmd == "timeline.create"
+                && let Err(e) = app.run("layer.videoLayers.newBlankVideoLayer", json!({}))
+            {
+                app.ui.status = e;
+            }
+            if matches!(cmd, "layer.videoLayers.insertBlankFrame" | "layer.videoLayers.duplicateFrame")
+                && let Err(e) = app.run("timeline.setFrame", json!({"frame":previous.saturating_add(1)}))
+            {
+                app.ui.status = e;
+            }
+        }
     }
     // Playback: auto-advance the playhead at the frame rate (loops).
     if app.ui.timeline.playing {
@@ -137,11 +180,15 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
             let now = ctx.input(|i| i.time);
             let period = 1.0 / f64::from(t.fps.max(1.0));
             if now - app.ui.timeline.last_time >= period {
+                let elapsed = ((now - app.ui.timeline.last_time) / period).floor().max(1.) as usize;
+                let next = t.current.saturating_add(elapsed) % t.duration.max(1);
                 app.ui.timeline.last_time = now;
-                let next = (t.current + 1) % t.duration.max(1);
-                let _ = app.run("timeline.setFrame", json!({ "frame": next as u64 }));
+                if let Err(e) = app.run("timeline.setFrame", json!({"frame":next as u64})) {
+                    app.ui.status = e;
+                    app.ui.timeline.playing = false;
+                }
             }
-            ctx.request_repaint();
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(period));
         } else {
             app.ui.timeline.playing = false;
         }

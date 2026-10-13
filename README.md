@@ -1,3 +1,5 @@
+> **Android fork:** See [Android build, features and validation](apps/photocraft-android/README.md). The editor remains native Rust; the Android document picker and Share sheet use a small Java platform bridge.
+
 <p align="center">
   <a href="https://getartcraft.com/">
     <picture>

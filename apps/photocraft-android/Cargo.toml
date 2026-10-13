@@ -1,0 +1,34 @@
+[package]
+name = "photocraft-android"
+version.workspace = true
+edition = "2021"
+license.workspace = true
+[lib]
+crate-type = ["cdylib", "rlib"]
+[dependencies]
+photocraft-ui-egui.workspace = true
+photocraft-engine.workspace = true
+photocraft-io.workspace = true
+photocraft-doc.workspace = true
+photocraft-compose.workspace = true
+photocraft-codecs.workspace = true
+egui.workspace = true
+eframe = { workspace = true, features = ["wgpu", "default_fonts", "android-native-activity"] }
+log.workspace = true
+rayon.workspace = true
+serde_json.workspace = true
+winit = { version = "0.30", default-features = false, features = ["android-native-activity"] }
+[target.'cfg(target_os = "android")'.dependencies]
+android_logger = "0.15"
+android-activity = { version = "0.6", features = ["native-activity"] }
+jni = "0.22"
+jni-min-helper = "=0.4.4"
+
+[target.'cfg(not(target_os = "android"))'.dev-dependencies]
+eframe = { workspace = true, features = ["x11", "accesskit"] }
+egui_kittest = { workspace = true, features = ["wgpu", "snapshot", "eframe"] }
+
+[dependencies.photocraft-format]
+workspace = true
+[dependencies.serde]
+workspace = true

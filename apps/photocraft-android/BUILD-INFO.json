@@ -1,0 +1,41 @@
+{
+  "upstream": "https://github.com/storytold/photocraft",
+  "commit": "c1bd296dcf8429ef084cc357113c08b56caead67",
+  "version": "0.7.0-android-preview.7",
+  "architecture": "arm64-v8a",
+  "minApi": 29,
+  "targetApi": 35,
+  "rust": "1.95.0",
+  "ndk": "29.0.14206865",
+  "checks": {
+    "androidBuild": "Rust1.95/NDK29 optimized ARM64 build passed",
+    "hostTests": "19 passed: gestures, holding, storage, recovery, recording, project round-trip and Recent preferences",
+    "offscreenTests": "8 passed including 800x1280 portrait and 1691x977 landscape; screenshots visually inspected",
+    "javaCompilation": "SDK35 javac and D8 passed",
+    "javaRules": "10 browser groups and 4 AVC colour-plane cases passed",
+    "androidClippy": "strict scoped host library passed",
+    "wasm": "shared UI and transitive dependencies check passed",
+    "layers": "30 crates, no layering violations",
+    "parity": "menu report regenerated; not feature-fidelity certification",
+    "signature": "v3 verified, prior preview identity retained",
+    "archive": "ZIP CRC and zipalign checks passed",
+    "nativeAlignment": "all ELF LOAD segments 0x4000 (16KiB)",
+    "physicalDevices": "not tested; no emulator used",
+    "sharedUiClippy": "passed with prior collapsible_match and nonminimal_bool categories allowed"
+  },
+  "limitations": [
+    "ARM64 only, Android10/API29+; no claim of universal tablet compatibility",
+    "Gallery/SAF, JNI runtime and AVC output require physical Android validation",
+    "Timelapse samples completed states from this update; 512px square24fps, not stroke replay or animation MP4",
+    "Recording is app data separate from project; app must remain open during export",
+    "Preview signing identity retained; use a private production identity before public distribution",
+    "Recovery restores last completed checkpoint, not uncommitted tools/undo history"
+  ],
+  "startupFix": "Android Shell forwards App::logic; completes font setup and handles editor state/file replies",
+  "applicationLabel": "PhotoCraft",
+  "versionCode": 7,
+  "platformBridge": "Java NativeActivity document-picker and Share bridge; Rust editor, no WebView",
+  "apkSha256": "58145e288ec8a1be91789370c51187a8282599ebde8cb267a4bd3ad76ae109a5",
+  "apkSizeBytes": 23278172,
+  "nativeLibrarySha256": "b987a433bd7281b5fd8ac8943f8d64c83c57a4c1efb4d03a081811f554d854b6"
+}

@@ -80,11 +80,15 @@ fn edit_video(s: &mut Session, label: &str, f: impl FnOnce(&mut VideoData, usize
         let id = active.ok_or(EngineError::NoDocument)?;
         let l = doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?;
         let v = l.video.as_mut().ok_or_else(|| EngineError::BadParams { cmd: label.into(), msg: "the active layer is not a video layer".into() })?;
+        if v.frames.len() >= 4096 && matches!(label, "Insert Blank Frame" | "Duplicate Frame") {
+            return Err(EngineError::Other("Animation is limited to 4096 frames; split the scene into another project".into()));
+        }
         f(v, cur)?;
         let n = v.frames.len();
+        let max_frames = doc.walk().into_iter().filter_map(|(_, _, l)| l.video.as_ref().map(|v| v.frames.len())).max().unwrap_or(1);
         if let Some(t) = &mut doc.timeline {
-            t.duration = t.duration.max(n.max(1));
-            t.work_end = t.work_end.max(t.duration);
+            t.duration = max_frames.max(1);
+            t.work_end = t.duration;
             t.clamp();
         }
         sync(doc);
@@ -106,6 +110,9 @@ fn new_blank(s: &mut Session, _p: &Value) -> Result<Value> {
         }
         let fps = doc.timeline.as_ref().map_or(30.0, |t| t.fps);
         let n = doc.timeline.as_ref().map_or(1, |t| t.duration).max(1);
+        if n > 4096 {
+            return Err(EngineError::Other("A drawing layer can contain at most 4096 frames".into()));
+        }
         let frames: Vec<Surface> = (0..n).map(|_| Surface::new(fmt)).collect();
         let name = doc.next_layer_name("Video Layer");
         let mut l = Layer::raster(name, fmt);

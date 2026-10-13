@@ -563,7 +563,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     // The caption buttons keep the right end; the menus start beside them.
                     ui.add_space(crate::titlebar::WIDTH + 4.0);
                 }
-                if !system {
+                if !system && !app.tablet_mode {
                     let side = if t.pro { 18.0 } else { 20.0 };
                     let (mark, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
                     crate::brand::paint_mark(ui, mark);
@@ -626,7 +626,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                         photocraft_engine::prefs::AppearanceMode::Light => ("sun", tl!("Light")),
                     };
                     let appearance_tip = format!("{}: {}", tl!("Appearance Mode"), appearance_label);
-                    if icons_shown >= 2 {
+                    if icons_shown >= 2 && !app.tablet_mode {
                         let button = icons::button(ui, theme_icon, 28.0, false, &appearance_tip);
                         if button.clicked() {
                             crate::prefs_ui::cycle_appearance(app, ui.ctx());
@@ -635,7 +635,7 @@ pub fn title_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     }
                     // The community Discord, one click away while the bar has room for it
                     // (narrow windows drop it first; it is also Help › Discord).
-                    if ui.available_width() >= DISCORD_ROOM {
+                    if ui.available_width() >= DISCORD_ROOM && !app.tablet_mode {
                         let discord = egui::Button::image_and_text(
                             icons::image("message-square", 14.0, t.text_dim),
                             egui::RichText::new(tl!("Discord")).color(t.text_dim).size(12.0),
@@ -2137,60 +2137,173 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         });
         // Docks zero the item spacing: keep the Opacity and Fill fields apart (#155).
         ui.add_space((theme::ROW_GAP - ui.spacing().item_spacing.y).max(0.0));
-        ui.horizontal(|ui| {
-            let lock_label = if t.pro { tl!("Lock:") } else { tl!("Lock") };
-            let fill_label = if t.pro { tl!("Fill:") } else { tl!("Fill") };
-            // In a narrow panel with long translated labels, drop the "Lock:" text (the icons keep
-            // their tooltips) rather than let the Fill label run over the lock icons.
-            let gap = ui.spacing().item_spacing.x;
-            let icons_w = if t.pro { 5.0 * 20.0 + gap } else { 22.0 + gap };
-            let fits = body_text_width(ui, lock_label) + icons_w + body_text_width(ui, fill_label) + LAYER_PCT_W + 2.0 * gap <= ui.available_width();
-            if fits {
-                label(ui, lock_label);
-            }
-            if t.pro {
-                // The lock icons touch, but only they: the Fill label keeps the same gap before its
-                // field as Opacity's, so both stack in one right-aligned column (#2085).
-                ui.scope(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    let lk = l.locks;
-                    for (key, icon, tip, on) in [
-                        ("transparency", "grid-3x3", tl!("Lock transparent pixels"), lk.transparency),
-                        ("pixels", "brush", tl!("Lock image pixels"), lk.pixels),
-                        ("position", "move", tl!("Lock position"), lk.position),
-                        ("artboard", "scan", tl!("Prevent auto-nesting in and out of Artboards and Frames"), lk.artboard),
-                        ("all", "lock", tl!("Lock all"), lk.all),
-                    ] {
-                        if icons::button(ui, icon, 20.0, on, tip).clicked() {
-                            actions.push(("layer.setProps".into(), json!({"layer": l.id.0, "locks": { key: !on }})));
-                        }
+        if app.tablet_mode {
+            ui.horizontal_wrapped(|ui| {
+                for (icon, tip, id, params, on) in [
+                    ("layers", "Clip to layer below", "layer.setProps", json!({"layer":l.id.0,"clipped":!l.clipped}), l.clipped),
+                    (
+                        "grid-3x3",
+                        "Lock transparent pixels",
+                        "layer.setProps",
+                        json!({"layer":l.id.0,"locks":{"transparency":!l.locks.transparency}}),
+                        l.locks.transparency,
+                    ),
+                    ("lock", "Lock layer", "layer.setProps", json!({"layer":l.id.0,"locks":{"all":!l.locks.all}}), l.locks.all),
+                    ("tablet-reference", "Set as reference layer", "layer.setProps", json!({"layer":l.id.0,"reference":!l.reference}), l.reference),
+                    ("image", "Import image", "file.placeEmbedded", Value::Null, false),
+                    ("sliders-horizontal", "Hue, saturation and lightness", "image.adjustments.hueSaturation", Value::Null, false),
+                ] {
+                    if icons::button(ui, icon, 36., on, tip).clicked() {
+                        actions.push((id.into(), params));
                     }
-                });
-            }
-            if !t.pro {
-                let locked = l.locks.transparency || l.locks.position || l.locks.all;
-                if icons::button(ui, if locked { "lock" } else { "lock-open" }, 22.0, locked, tl!("Lock layer")).clicked() {
-                    actions.push(simple_lock_toggle(bg, l));
                 }
-            }
-            ui.add_enabled_ui(!bg, |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let mut f = l.fill_opacity * 100.0;
-                    let field = widgets::popup_value_field(ui, fill_label, &mut f, 0.0..=100.0, "%", LAYER_PCT_W);
-                    let scrub = scrub_pct_label(ui, fill_label, &mut f);
-                    if field.changed || scrub.changed {
-                        actions.push(pct_action(l, "fill", f, scrub.drag.or(field.drag)));
-                    }
-                })
             });
-        });
+        } else {
+            ui.horizontal(|ui| {
+                let lock_label = if t.pro { tl!("Lock:") } else { tl!("Lock") };
+                let fill_label = if t.pro { tl!("Fill:") } else { tl!("Fill") };
+                // In a narrow panel with long translated labels, drop the "Lock:" text (the icons keep
+                // their tooltips) rather than let the Fill label run over the lock icons.
+                let gap = ui.spacing().item_spacing.x;
+                let icons_w = if t.pro { 5.0 * 20.0 + gap } else { 22.0 + gap };
+                let fits = body_text_width(ui, lock_label) + icons_w + body_text_width(ui, fill_label) + LAYER_PCT_W + 2.0 * gap <= ui.available_width();
+                if fits {
+                    label(ui, lock_label);
+                }
+                if t.pro {
+                    // The lock icons touch, but only they: the Fill label keeps the same gap before its
+                    // field as Opacity's, so both stack in one right-aligned column (#2085).
+                    ui.scope(|ui| {
+                        ui.spacing_mut().item_spacing.x = 0.0;
+                        let lk = l.locks;
+                        for (key, icon, tip, on) in [
+                            ("transparency", "grid-3x3", tl!("Lock transparent pixels"), lk.transparency),
+                            ("pixels", "brush", tl!("Lock image pixels"), lk.pixels),
+                            ("position", "move", tl!("Lock position"), lk.position),
+                            ("artboard", "scan", tl!("Prevent auto-nesting in and out of Artboards and Frames"), lk.artboard),
+                            ("all", "lock", tl!("Lock all"), lk.all),
+                        ] {
+                            if icons::button(ui, icon, 20.0, on, tip).clicked() {
+                                actions.push(("layer.setProps".into(), json!({"layer": l.id.0, "locks": { key: !on }})));
+                            }
+                        }
+                    });
+                }
+                if !t.pro {
+                    let locked = l.locks.transparency || l.locks.position || l.locks.all;
+                    if icons::button(ui, if locked { "lock" } else { "lock-open" }, 22.0, locked, tl!("Lock layer")).clicked() {
+                        actions.push(simple_lock_toggle(bg, l));
+                    }
+                }
+                ui.add_enabled_ui(!bg, |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let mut f = l.fill_opacity * 100.0;
+                        let field = widgets::popup_value_field(ui, fill_label, &mut f, 0.0..=100.0, "%", LAYER_PCT_W);
+                        let scrub = scrub_pct_label(ui, fill_label, &mut f);
+                        if field.changed || scrub.changed {
+                            actions.push(pct_action(l, "fill", f, scrub.drag.or(field.drag)));
+                        }
+                    })
+                });
+            });
+        }
         ui.add_space(2.0);
     }
 
+    let ctx = ui.ctx().clone();
+    let footer_drag = ctx.data(|d| d.get_temp::<u64>(egui::Id::new("layer-drag"))).map(|id| (id, selection.iter().any(|s| s.0 == id)));
+    if app.tablet_mode {
+        ui.horizontal_wrapped(|ui| {
+            let active_layer = active.and_then(|id| doc.layer(id));
+            let (delete, label) = if app.ui.vector_mask_target && active_layer.is_some_and(|l| l.vector_mask.is_some()) {
+                ("layer.vectorMask.delete", "Delete Vector Mask")
+            } else if app.ui.mask_target && active_layer.is_some_and(|l| l.mask.is_some()) {
+                ("layer.layerMask.delete", "Delete Layer Mask")
+            } else {
+                ("layer.delete", "Delete layer")
+            };
+            let trash = icons::button(ui, "trash", 36.0, false, tl!(label));
+            if trash.clicked() {
+                // Like Photoshop, ⌥/Alt-click deletes without asking.
+                let confirm = delete == "layer.delete" && !ui.input(|i| i.modifiers.alt);
+                let params = if confirm { json!({"__trash": true}) } else { json!({}) };
+                actions.push((delete.into(), params));
+            }
+            actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
+            // A click follows the selected thumbnail; name that action for screen readers even
+            // though dropping a whole layer row onto the same button always deletes the layer.
+            trash.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!(label)));
+            let new_layer = icons::button(ui, "square-plus", 36.0, false, &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"));
+            if new_layer.clicked() {
+                actions.push(("layer.new.layer".into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
+            let group = icons::button(ui, "folder", 36.0, false, tl!("Create a new group"));
+            if group.clicked() {
+                // Like Photoshop a plain click adds an empty group; Shift-click groups the selected
+                // layers, the same as Layer › Group Layers (#2561).
+                let shift = ui.input(|i| i.modifiers.shift);
+                let cmd = if shift && active_layer.is_some() { "layer.groupLayers" } else { "layer.new.group" };
+                actions.push((cmd.into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
+            let adj = footer_menu_button(ui, "adjustment-layer", 36.0, tl!("Create new fill or adjustment layer"));
+            // Opens on the press like Photoshop's: drag onto an item and release to choose it (#2071).
+            crate::press_menu::show(&adj, |ui, menu| {
+                ui.set_min_width(190.0);
+                for c in photocraft_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
+                    if menu.item(ui, tl!(c.label).trim_end_matches('…')) {
+                        actions.push((c.id.into(), json!({})));
+                    }
+                }
+                ui.separator();
+                if menu.item(ui, tl!("Solid Color…")) {
+                    actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
+                }
+                if menu.item(ui, tl!("Gradient…")) {
+                    actions.push(("layer.newFillLayer.gradient".into(), json!({})));
+                }
+            });
+            // Like Photoshop the button never replaces a mask (#2075): with a layer mask it adds a
+            // vector mask, and with both it is greyed.
+            let alt = ui.input(|i| i.modifiers.alt);
+            let mask_cmd = crate::layer_menu_ui::mask_button_command(active_layer, doc.selection.is_some(), alt);
+            let mask_tip = if active_layer.is_some_and(|l| l.mask.is_some()) {
+                tl!("Add vector mask").to_string()
+            } else {
+                crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))])
+            };
+            let mask_btn = ui.add_enabled_ui(mask_cmd.is_some(), |ui| icons::button(ui, "layer-mask", 36.0, false, &mask_tip)).inner;
+            mask_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &mask_tip));
+            if mask_btn.clicked()
+                && let Some(cmd) = mask_cmd
+            {
+                actions.push((cmd.into(), json!({})));
+            }
+            let fx = fx_button(ui, 36.0, tl!("Add a layer style"));
+            crate::press_menu::show(&fx, |ui, menu| {
+                ui.set_min_width(180.0);
+                if menu.item(ui, tl!("Blending Options…")) {
+                    crate::layer_style::open(app, None);
+                }
+                ui.separator();
+                for &(kind, label) in crate::layer_style::KINDS {
+                    if menu.item(ui, format!("{}…", tl!(label))) {
+                        crate::layer_style::open(app, Some(kind));
+                    }
+                }
+            });
+            // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
+            let can_link = app.session.is_enabled("layer.linkLayers");
+            if ui.add_enabled_ui(can_link, |ui| icons::button(ui, "link-2", 36.0, false, tl!("Link layers"))).inner.clicked() {
+                actions.push(("layer.linkLayers".into(), json!({})));
+            }
+        });
+    }
     // Top of the stack first, groups above their contents, closed groups' contents hidden (#126).
     let rows = crate::layer_tree_ui::display_rows(&doc, !app.ui.layer_filter.is_empty());
     let ctx = ui.ctx().clone();
-    let footer = widgets::footer_height(ui) + ui.spacing().item_spacing.y;
+    let footer = if app.tablet_mode { 0. } else { widgets::footer_height(ui) + ui.spacing().item_spacing.y };
     let fill = ui.available_height() > footer + 60.0;
     let rows_h = if fill { ui.available_height() - footer } else { f32::INFINITY };
     egui::ScrollArea::vertical()
@@ -2282,92 +2395,94 @@ fn layers(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         ctx.data_mut(|d| d.remove::<u64>(egui::Id::new("layer-drag")));
         ctx.data_mut(|d| d.remove::<FxDrag>(fx_drag_key()));
     }
-    widgets::panel_footer(ui, |ui| {
-        let active_layer = active.and_then(|id| doc.layer(id));
-        let (delete, label) = if app.ui.vector_mask_target && active_layer.is_some_and(|l| l.vector_mask.is_some()) {
-            ("layer.vectorMask.delete", "Delete Vector Mask")
-        } else if app.ui.mask_target && active_layer.is_some_and(|l| l.mask.is_some()) {
-            ("layer.layerMask.delete", "Delete Layer Mask")
-        } else {
-            ("layer.delete", "Delete layer")
-        };
-        let trash = icons::button(ui, "trash", 26.0, false, tl!(label));
-        if trash.clicked() {
-            // Like Photoshop, ⌥/Alt-click deletes without asking.
-            let confirm = delete == "layer.delete" && !ui.input(|i| i.modifiers.alt);
-            let params = if confirm { json!({"__trash": true}) } else { json!({}) };
-            actions.push((delete.into(), params));
-        }
-        actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
-        // A click follows the selected thumbnail; name that action for screen readers even
-        // though dropping a whole layer row onto the same button always deletes the layer.
-        trash.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!(label)));
-        let new_layer = icons::button(ui, "square-plus", 26.0, false, &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"));
-        if new_layer.clicked() {
-            actions.push(("layer.new.layer".into(), json!({})));
-        }
-        actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
-        let group = icons::button(ui, "folder", 26.0, false, tl!("Create a new group"));
-        if group.clicked() {
-            // Like Photoshop a plain click adds an empty group; Shift-click groups the selected
-            // layers, the same as Layer › Group Layers (#2561).
-            let shift = ui.input(|i| i.modifiers.shift);
-            let cmd = if shift && active_layer.is_some() { "layer.groupLayers" } else { "layer.new.group" };
-            actions.push((cmd.into(), json!({})));
-        }
-        actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
-        let adj = footer_menu_button(ui, "adjustment-layer", 26.0, tl!("Create new fill or adjustment layer"));
-        // Opens on the press like Photoshop's: drag onto an item and release to choose it (#2071).
-        crate::press_menu::show(&adj, |ui, menu| {
-            ui.set_min_width(190.0);
-            for c in photocraft_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
-                if menu.item(ui, tl!(c.label).trim_end_matches('…')) {
-                    actions.push((c.id.into(), json!({})));
+    if !app.tablet_mode {
+        widgets::panel_footer(ui, |ui| {
+            let active_layer = active.and_then(|id| doc.layer(id));
+            let (delete, label) = if app.ui.vector_mask_target && active_layer.is_some_and(|l| l.vector_mask.is_some()) {
+                ("layer.vectorMask.delete", "Delete Vector Mask")
+            } else if app.ui.mask_target && active_layer.is_some_and(|l| l.mask.is_some()) {
+                ("layer.layerMask.delete", "Delete Layer Mask")
+            } else {
+                ("layer.delete", "Delete layer")
+            };
+            let trash = icons::button(ui, "trash", 26.0, false, tl!(label));
+            if trash.clicked() {
+                // Like Photoshop, ⌥/Alt-click deletes without asking.
+                let confirm = delete == "layer.delete" && !ui.input(|i| i.modifiers.alt);
+                let params = if confirm { json!({"__trash": true}) } else { json!({}) };
+                actions.push((delete.into(), params));
+            }
+            actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
+            // A click follows the selected thumbnail; name that action for screen readers even
+            // though dropping a whole layer row onto the same button always deletes the layer.
+            trash.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!(label)));
+            let new_layer = icons::button(ui, "square-plus", 26.0, false, &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"));
+            if new_layer.clicked() {
+                actions.push(("layer.new.layer".into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
+            let group = icons::button(ui, "folder", 26.0, false, tl!("Create a new group"));
+            if group.clicked() {
+                // Like Photoshop a plain click adds an empty group; Shift-click groups the selected
+                // layers, the same as Layer › Group Layers (#2561).
+                let shift = ui.input(|i| i.modifiers.shift);
+                let cmd = if shift && active_layer.is_some() { "layer.groupLayers" } else { "layer.new.group" };
+                actions.push((cmd.into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
+            let adj = footer_menu_button(ui, "adjustment-layer", 26.0, tl!("Create new fill or adjustment layer"));
+            // Opens on the press like Photoshop's: drag onto an item and release to choose it (#2071).
+            crate::press_menu::show(&adj, |ui, menu| {
+                ui.set_min_width(190.0);
+                for c in photocraft_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
+                    if menu.item(ui, tl!(c.label).trim_end_matches('…')) {
+                        actions.push((c.id.into(), json!({})));
+                    }
                 }
+                ui.separator();
+                if menu.item(ui, tl!("Solid Color…")) {
+                    actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
+                }
+                if menu.item(ui, tl!("Gradient…")) {
+                    actions.push(("layer.newFillLayer.gradient".into(), json!({})));
+                }
+            });
+            // Like Photoshop the button never replaces a mask (#2075): with a layer mask it adds a
+            // vector mask, and with both it is greyed.
+            let alt = ui.input(|i| i.modifiers.alt);
+            let mask_cmd = crate::layer_menu_ui::mask_button_command(active_layer, doc.selection.is_some(), alt);
+            let mask_tip = if active_layer.is_some_and(|l| l.mask.is_some()) {
+                tl!("Add vector mask").to_string()
+            } else {
+                crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))])
+            };
+            let mask_btn = ui.add_enabled_ui(mask_cmd.is_some(), |ui| icons::button(ui, "layer-mask", 26.0, false, &mask_tip)).inner;
+            mask_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &mask_tip));
+            if mask_btn.clicked()
+                && let Some(cmd) = mask_cmd
+            {
+                actions.push((cmd.into(), json!({})));
             }
-            ui.separator();
-            if menu.item(ui, tl!("Solid Color…")) {
-                actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
-            }
-            if menu.item(ui, tl!("Gradient…")) {
-                actions.push(("layer.newFillLayer.gradient".into(), json!({})));
+            let fx = fx_button(ui, 26.0, tl!("Add a layer style"));
+            crate::press_menu::show(&fx, |ui, menu| {
+                ui.set_min_width(180.0);
+                if menu.item(ui, tl!("Blending Options…")) {
+                    crate::layer_style::open(app, None);
+                }
+                ui.separator();
+                for &(kind, label) in crate::layer_style::KINDS {
+                    if menu.item(ui, format!("{}…", tl!(label))) {
+                        crate::layer_style::open(app, Some(kind));
+                    }
+                }
+            });
+            // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
+            let can_link = app.session.is_enabled("layer.linkLayers");
+            if ui.add_enabled_ui(can_link, |ui| icons::button(ui, "link-2", 26.0, false, tl!("Link layers"))).inner.clicked() {
+                actions.push(("layer.linkLayers".into(), json!({})));
             }
         });
-        // Like Photoshop the button never replaces a mask (#2075): with a layer mask it adds a
-        // vector mask, and with both it is greyed.
-        let alt = ui.input(|i| i.modifiers.alt);
-        let mask_cmd = crate::layer_menu_ui::mask_button_command(active_layer, doc.selection.is_some(), alt);
-        let mask_tip = if active_layer.is_some_and(|l| l.mask.is_some()) {
-            tl!("Add vector mask").to_string()
-        } else {
-            crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))])
-        };
-        let mask_btn = ui.add_enabled_ui(mask_cmd.is_some(), |ui| icons::button(ui, "layer-mask", 26.0, false, &mask_tip)).inner;
-        mask_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &mask_tip));
-        if mask_btn.clicked()
-            && let Some(cmd) = mask_cmd
-        {
-            actions.push((cmd.into(), json!({})));
-        }
-        let fx = fx_button(ui, 26.0, tl!("Add a layer style"));
-        crate::press_menu::show(&fx, |ui, menu| {
-            ui.set_min_width(180.0);
-            if menu.item(ui, tl!("Blending Options…")) {
-                crate::layer_style::open(app, None);
-            }
-            ui.separator();
-            for &(kind, label) in crate::layer_style::KINDS {
-                if menu.item(ui, format!("{}…", tl!(label))) {
-                    crate::layer_style::open(app, Some(kind));
-                }
-            }
-        });
-        // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
-        let can_link = app.session.is_enabled("layer.linkLayers");
-        if ui.add_enabled_ui(can_link, |ui| icons::button(ui, "link-2", 26.0, false, tl!("Link layers"))).inner.clicked() {
-            actions.push(("layer.linkLayers".into(), json!({})));
-        }
-    });
+    }
     for (id, p) in actions {
         if id == "ui.maskTarget" {
             app.ui.mask_target = p.as_bool().unwrap_or(false);

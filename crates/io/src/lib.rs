@@ -245,6 +245,18 @@ fn import_stages(name: &str, bytes: &[u8], ctl: &photocraft_raster::Interrupt, m
     }
     if is_psd(bytes) {
         let file = PsdFile::from_bytes(bytes)?;
+        #[cfg(target_os = "android")]
+        if file.header.width > 8192 || file.header.height > 8192 || u64::from(file.header.width) * u64::from(file.header.height) > 24_000_000 {
+            return Err(IoError::Unsupported(
+                "Android PSD imports are limited to 8192 pixels per side and 24 megapixels. Resize the file before importing it.".into(),
+            ));
+        }
+        #[cfg(target_os = "android")]
+        if file.layers().len() > 128 {
+            return Err(IoError::Unsupported(
+                "This PSD contains more than 128 layers. Reduce the layer count or split the project before importing on Android.".into(),
+            ));
+        }
         // Nesting past the document model's cap could never be saved; reject the file with the
         // actionable limit.
         psd_import::check_group_depth(&file)?;

@@ -1,0 +1,1 @@
+Copyright 2026 PhotoCraft contributors. Original tablet-save, tablet-share, tablet-feather and tablet-reference SVG icons. Licensed under MIT OR Apache-2.0; see repository LICENSE-MIT and LICENSE-APACHE.

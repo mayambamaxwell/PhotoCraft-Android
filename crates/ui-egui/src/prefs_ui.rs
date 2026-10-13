@@ -990,7 +990,22 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
         "prefs" => {
             f.insert("__gpuInfo".into(), json!(app.perf.gpu_info.lines()));
             let system = system_theme(app, ui.ctx());
-            prefs_body(ui, f, system);
+            let mut platform = f.get("__platformTab").and_then(Value::as_bool).unwrap_or(false);
+            if app.services.platform_preferences.is_some() {
+                ui.horizontal(|ui| {
+                    ui.selectable_value(&mut platform, false, "Editor preferences");
+                    ui.selectable_value(&mut platform, true, "Android & tablet");
+                });
+            }
+            f.insert("__platformTab".into(), json!(platform));
+            if platform {
+                if let Some(settings) = app.services.platform_preferences.as_mut() {
+                    ui.label("Tablet controls apply immediately.");
+                    settings(ui);
+                }
+            } else {
+                prefs_body(ui, f, system);
+            }
         }
         "shortcuts" => shortcuts_body(app, ui, f),
         "presets" => presets_body(app, ui, f),
@@ -3096,4 +3111,12 @@ mod tests {
         let d = crate::menus::invoke(&mut app, &ctx, "edit.presets.presetManager", json!({})).unwrap()["dialog"].as_u64().unwrap();
         assert!(crate::dialogs::confirm(&mut app, d).is_ok());
     }
+}
+
+pub(crate) fn request_recovery(app: &mut PhotocraftApp) {
+    app.prefs_rt.recovery_started = false;
+}
+
+pub(crate) fn defer_recovery(app: &mut PhotocraftApp) {
+    app.prefs_rt.recovery_started = true;
 }

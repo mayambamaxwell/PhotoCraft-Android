@@ -185,6 +185,7 @@ fn layer_m(l: &Layer, sink: &mut dyn Sink) -> LayerM {
         opacity: l.opacity,
         fill_opacity: l.fill_opacity,
         clipped: l.clipped,
+        reference: l.reference,
         mask: l.mask.as_ref().map(|m| MaskM {
             surface: surface_m(&m.surface, sink),
             enabled: m.enabled,
@@ -505,6 +506,7 @@ impl Loader<'_> {
             opacity: m.opacity,
             fill_opacity: m.fill_opacity,
             clipped: m.clipped,
+            reference: m.reference,
             mask,
             vector_mask: m.vector_mask.clone(),
             effects: Effects {

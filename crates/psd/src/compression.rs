@@ -19,7 +19,13 @@ use crate::io::{Reader, WriteExt};
 /// decompression bombs, not the main guard. It has to fit real PSBs: a
 /// 30000² RGB merged image is 2.7 GB, and a 33000² 16-bit layer channel is
 /// 2.2 GB, both of which a 2 GiB cap turned into empty layers (#375).
-pub const MAX_DECODED_BYTES: u64 = if cfg!(target_pointer_width = "64") { 8 << 30 } else { 2 << 30 };
+pub const MAX_DECODED_BYTES: u64 = if cfg!(target_os = "android") {
+    512 << 20
+} else if cfg!(target_pointer_width = "64") {
+    8 << 30
+} else {
+    2 << 30
+};
 
 /// Compression method stored before channel / image data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

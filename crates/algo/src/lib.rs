@@ -32,6 +32,7 @@ mod distort2;
 pub mod erase;
 pub mod exif;
 pub mod features;
+mod finishing;
 mod fxutil;
 mod gallery;
 pub mod hdr;
@@ -198,6 +199,26 @@ pub enum PolarMode {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "filter", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum FilterParams {
+    Bloom {
+        radius: f32,
+        threshold: f32,
+        brightness: f32,
+    },
+    CrossFilter {
+        radius: f32,
+        threshold: f32,
+        brightness: f32,
+        count: u32,
+        direction: f32,
+    },
+    ChromaticAberration {
+        distance: f32,
+        angle: f32,
+        zoom: bool,
+        center_x: f32,
+        center_y: f32,
+        reverse: bool,
+    },
     /// Radius = Gaussian standard deviation in pixels (0.1–1000).
     GaussianBlur {
         radius: f32,
@@ -550,6 +571,15 @@ impl FilterParams {
     pub fn halo(&self) -> Halo {
         let g = |sigma: f32| Halo::Radius((sigma.max(0.0) * 3.0).ceil() as i32 + 1);
         match self {
+            FilterParams::Bloom { radius, .. } => g(*radius),
+            FilterParams::CrossFilter { radius, .. } => Halo::Radius(radius.ceil() as i32 + 2),
+            FilterParams::ChromaticAberration { distance, zoom, .. } => {
+                if *zoom {
+                    Halo::Bounds
+                } else {
+                    Halo::Radius(distance.abs().ceil() as i32 + 2)
+                }
+            }
             FilterParams::GaussianBlur { radius } | FilterParams::HighPass { radius } => g(*radius),
             FilterParams::UnsharpMask { radius, .. } | FilterParams::SmartSharpen { radius, .. } => g(*radius),
             FilterParams::BoxBlur { radius }
@@ -579,6 +609,9 @@ impl FilterParams {
     /// depends on size (Relight's shading blur) request the neighbourhood they actually read.
     pub fn halo_for(&self, bounds: Rect) -> Halo {
         match self {
+            FilterParams::ChromaticAberration { distance, zoom: true, .. } => {
+                Halo::Radius((bounds.width().max(bounds.height()) as f32 * distance.abs() / 100.).ceil() as i32 + 2)
+            }
             FilterParams::Relight { intensity, softness, .. } if *intensity != 0.0 => Halo::Radius(relight::halo_radius(*softness, bounds)),
             _ => self.halo(),
         }
@@ -600,6 +633,10 @@ impl FilterParams {
     /// Human-readable name.
     pub fn label(&self) -> &'static str {
         match self {
+            FilterParams::Bloom { .. } => "Bloom",
+            FilterParams::CrossFilter { .. } => "Cross Filter",
+            FilterParams::ChromaticAberration { zoom: true, .. } => "Chromatic Aberration (Zooming)",
+            FilterParams::ChromaticAberration { .. } => "Chromatic Aberration (Moving)",
             FilterParams::GaussianBlur { .. } => "Gaussian Blur",
             FilterParams::BoxBlur { .. } => "Box Blur",
             FilterParams::MotionBlur { .. } => "Motion Blur",
@@ -720,6 +757,7 @@ pub struct Ctx {
 /// the halo, or the bounds for global filters). Returns interleaved samples.
 pub fn kernel(params: &FilterParams, src: &Image, out: Rect, ctx: &Ctx) -> Vec<f32> {
     match params {
+        FilterParams::Bloom { .. } | FilterParams::CrossFilter { .. } | FilterParams::ChromaticAberration { .. } => finishing::run(params, src, out, ctx),
         FilterParams::GaussianBlur { radius } => blur::gaussian(src, out, ctx, *radius),
         FilterParams::BoxBlur { radius } => blur::boxed(src, out, ctx, *radius),
         FilterParams::MotionBlur { angle, distance } => blur::motion(src, out, ctx, *angle, *distance),

@@ -182,6 +182,9 @@ fn is_pixel_param(key: &str) -> bool {
 /// Correction's perspective `horizontal` / `vertical` (-100..100). Scaled by the proxy factor,
 /// their preview drew a quarter-size tree and a quarter of the perspective (#2063).
 fn is_pixel_param_of(command: &str, key: &str) -> bool {
+    if command == "filter.artistic.chromaticAberrationZooming" && key == "distance" {
+        return false;
+    }
     is_pixel_param(key)
         && !matches!((command, key), ("filter.render.tree" | "filter.render.pictureFrame", "size") | ("filter.lensCorrection", "horizontal" | "vertical"))
 }

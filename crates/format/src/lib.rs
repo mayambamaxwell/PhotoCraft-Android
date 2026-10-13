@@ -99,6 +99,9 @@ pub struct LoadOptions {
 
 impl Default for LoadOptions {
     fn default() -> Self {
+        if cfg!(target_os = "android") {
+            return LoadOptions { max_manifest_bytes: 32 << 20, max_blob_bytes: 256 << 20, max_total_bytes: 768 << 20, preserve_ids: true };
+        }
         LoadOptions { max_manifest_bytes: 256 << 20, max_blob_bytes: 1 << 30, max_total_bytes: 16 << 30, preserve_ids: true }
     }
 }

@@ -208,6 +208,8 @@ pub struct LayerM {
     pub opacity: f32,
     pub fill_opacity: f32,
     pub clipped: bool,
+    #[serde(default)]
+    pub reference: bool,
     pub mask: Option<MaskM>,
     #[serde(default)]
     pub vector_mask: Option<VectorMask>,

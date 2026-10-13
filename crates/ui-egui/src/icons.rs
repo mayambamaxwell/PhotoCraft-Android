@@ -190,7 +190,14 @@ pub fn button_with_icon_size(ui: &mut egui::Ui, name: &str, box_size: f32, icon_
     let resp = IconButton::new(label, Vec2::splat(box_size), &style).selected(selected).show(ui, |ui, rect, tint| {
         paint(ui, rect, name, icon_size, tint);
     });
-    if tooltip.is_empty() { resp } else { resp.on_hover_text(label) }
+    if tooltip.is_empty() {
+        resp
+    } else if cfg!(target_os = "android") && resp.hovered() {
+        resp.show_tooltip_text(label);
+        resp
+    } else {
+        resp.on_hover_text(label)
+    }
 }
 
 /// Rail toggle: "on" gets a quiet filled background and full-strength icon (no accent).

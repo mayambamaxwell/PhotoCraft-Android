@@ -598,6 +598,7 @@ pub struct Layer {
     pub fill_opacity: f32,
     /// Clipped to the layer below (clipping mask).
     pub clipped: bool,
+    pub reference: bool,
     pub mask: Option<LayerMask>,
     /// Vector mask (Layer › Vector Mask), applied together with `mask`. Shape layers keep their
     /// outline in [`ShapeLayer::path`] instead.
@@ -646,6 +647,7 @@ impl Layer {
             opacity: 1.0,
             fill_opacity: 1.0,
             clipped: false,
+            reference: false,
             mask: None,
             vector_mask: None,
             effects: Effects { enabled: true, ..Default::default() },

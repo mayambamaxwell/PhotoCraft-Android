@@ -118,6 +118,7 @@ pub mod native_menu;
 pub mod new_doc_ui;
 pub mod notices;
 mod numeric_expression;
+mod onion_ui;
 mod opacity_keys;
 pub mod outline;
 pub mod paint_mouse;
@@ -345,8 +346,12 @@ pub type WindowFrameFn = Box<dyn FnMut()>;
 
 /// Platform services injected by the app binary (file dialogs, codecs), keeping this crate free of
 /// I/O dependencies.
+pub type PlatformPreferencesFn = Box<dyn FnMut(&mut egui::Ui)>;
 #[derive(Default)]
 pub struct Services {
+    /// Platform video recording/export dialog.
+    pub timelapse_export: Option<Box<dyn FnMut()>>,
+    pub platform_preferences: Option<PlatformPreferencesFn>,
     /// User-initiated desktop/browser pixel sampling.
     pub screen_pick: Option<screen_picker::Service>,
     /// Decode a file's bytes into a document (PSD, PNG, JPEG, …).
@@ -442,6 +447,7 @@ pub(crate) type HistJob = (DocId, u64, std::sync::mpsc::Receiver<(DocId, f64, st
 type InfoSampleKey = (i32, i32, u64, u32);
 
 pub struct PhotocraftApp {
+    pub tablet_mode: bool,
     pub session: Session,
     pub ui: UiState,
     pub services: Services,
@@ -672,6 +678,7 @@ pub struct PhotocraftApp {
 impl PhotocraftApp {
     pub fn new(session: Session, services: Services) -> Self {
         let mut app = Self {
+            tablet_mode: cfg!(target_os = "android"),
             session,
             ui: UiState::default(),
             services,
@@ -1139,6 +1146,20 @@ impl PhotocraftApp {
     /// Save the active document to `path`, or to a path chosen in the save dialog (which
     /// continues on a later frame, see `file_dialog`). Returns `{"path", "warnings"}` (the export
     /// warnings are also shown to the user).
+    pub fn defer_workspace_recovery(&mut self) {
+        prefs_ui::defer_recovery(self);
+    }
+    pub fn recover_workspace(&mut self) -> Result<(), String> {
+        self.run("prefs.set", serde_json::json!({"values":{"fileHandling.recoverOnLaunch":true}}))?;
+        prefs_ui::request_recovery(self);
+        Ok(())
+    }
+    pub fn export_image_copy(&mut self, path: String) -> Result<Value, String> {
+        self.write_document(path.clone(), &ExportSettings::default(), true).map(|_| serde_json::json!({"path":path}))
+    }
+    pub fn export_animation(&mut self) -> Result<Value, String> {
+        self.pick_save("Animation.gif", |app, path| app.export_image_copy(path))
+    }
     pub fn save_as(&mut self, path: Option<String>) -> Result<Value, String> {
         self.save_as_with(path, None)
     }
@@ -1625,6 +1646,7 @@ impl eframe::App for PhotocraftApp {
         type_panels_ui::windows(self, &ctx);
         analysis_ui::windows(self, &ctx);
         timeline_ui::windows(self, &ctx);
+        onion_ui::paint(self, &ctx);
         workspace_ui::windows(self, &ctx);
         palette::show(self, &ctx);
         dialogs::show(self, &ctx);

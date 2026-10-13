@@ -246,6 +246,13 @@ impl Fetch for LoadFetch<'_> {
 
 pub(crate) fn load(src: &dyn ByteSource, opts: &LoadOptions) -> Result<Document> {
     let m = read_manifest(src, opts)?;
+    if cfg!(target_os = "android")
+        && (m.document.size.width > 8192 || m.document.size.height > 8192 || u64::from(m.document.size.width) * u64::from(m.document.size.height) > 24_000_000)
+    {
+        return Err(FormatError::LimitExceeded(
+            "Android projects are limited to 8192 pixels per side and 24 megapixels. Resize the project before opening it.".into(),
+        ));
+    }
     let mut fetch = LoadFetch { src, opts: *opts, total: 0, blobs: HashMap::new() };
     let mut loader = Loader {
         fetch: &mut fetch,

@@ -11,3 +11,8 @@ target/
 /craft-fonts
 *.log
 __pycache__/
+
+# Android signing credentials and release binaries
+*.keystore
+*.jks
+*.apk

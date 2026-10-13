@@ -37,6 +37,7 @@ pub const UI_COMMANDS: &[(&str, &str, &[&str], Option<&str>)] = &[
     ("file.saveAs", "Save As…", &["File"], Some("Cmd+Shift+S")),
     ("file.exit", "Exit", &["File"], Some("Cmd+Q")),
     ("edit.freeTransform", "Free Transform", &["Edit"], Some("Cmd+T")),
+    ("file.export.timelapse", "Timelapse video…", &["File", "Export"], None),
     ("file.export.exportAs", "Export As…", &["File", "Export"], Some("Cmd+Alt+Shift+W")),
     ("file.export.quickExportAsPng", "Quick Export as PNG", &["File", "Export"], None),
     ("edit.transform.scale", "Scale", &["Edit", "Transform"], None),
@@ -385,6 +386,11 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
             let dialog = app.ui.open_dialog(DialogKind::About, fields);
             Ok(json!({"dialog": dialog, "info": crate::gpu_status::system_info_json(app)}))
         }
+        "file.export.timelapse" => {
+            let service = app.services.timelapse_export.as_mut().ok_or("Timelapse export is unavailable on this platform")?;
+            service();
+            Ok(json!({"dialog":"timelapse"}))
+        }
         "file.export.exportAs" => Ok(json!({"dialog": crate::export_dialog::open(app)?})),
         "file.export.quickExportAsPng" => crate::export_dialog::quick_export_png(app),
         // Layer › Export As… / Quick Export as PNG: the export pipeline on just the active layer.
@@ -681,6 +687,7 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
         i if i.starts_with(DOCUMENT_ITEM) => true,
         i if crate::links::url_for(i).is_some() => true,
         i if i.starts_with("window.theme.") => true,
+        "file.export.timelapse" => app.services.timelapse_export.is_some() && app.session.active().is_some(),
         "file.save" | "file.saveAs" | "file.export.exportAs" | "file.export.quickExportAsPng" => {
             app.session.active().is_some() && app.services.export.is_some()
         }
@@ -1039,6 +1046,9 @@ pub fn menu_items(app: &PhotocraftApp) -> Vec<MenuItem> {
         for it in &mut items {
             it.color = prefs.menus.colors.get(&it.id).cloned();
         }
+    }
+    if app.tablet_mode {
+        items.retain(|item| item.id != "help.discord");
     }
     items
 }

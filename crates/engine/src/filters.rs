@@ -69,6 +69,27 @@ pub fn params_for(id: &str, p: &Value) -> Option<FilterParams> {
         return Some(fp);
     }
     Some(match id {
+        "filter.artistic.bloom" => FilterParams::Bloom {
+            radius: f(p, "radius", 12.).clamp(0.1, 128.),
+            threshold: f(p, "threshold", 0.7).clamp(0., 0.99),
+            brightness: f(p, "brightness", 1.).clamp(0., 4.),
+        },
+        "filter.artistic.crossFilter" => FilterParams::CrossFilter {
+            radius: f(p, "radius", 24.).clamp(1., 128.),
+            threshold: f(p, "threshold", 0.8).clamp(0., 0.99),
+            brightness: f(p, "brightness", 1.).clamp(0., 4.),
+            count: i(p, "count", 4).clamp(2, 8) as u32,
+            direction: f(p, "direction", 45.).clamp(-180., 180.),
+        },
+        "filter.artistic.chromaticAberrationZooming" | "filter.artistic.chromaticAberrationMoving" => FilterParams::ChromaticAberration {
+            distance: f(p, "distance", 3.).clamp(0., 20.),
+            angle: f(p, "angle", 0.).clamp(-180., 180.),
+            zoom: id.ends_with("Zooming"),
+            center_x: f(p, "centerX", 0.5).clamp(0., 1.),
+            center_y: f(p, "centerY", 0.5).clamp(0., 1.),
+            reverse: b(p, "reverse", false),
+        },
+
         "filter.blur.gaussianBlur" => FilterParams::GaussianBlur { radius: f(p, "radius", 1.0).clamp(0.1, 1000.0) },
         "filter.blur.boxBlur" => FilterParams::BoxBlur { radius: f(p, "radius", 1.0).clamp(1.0, 2000.0) },
         "filter.blur.motionBlur" => FilterParams::MotionBlur { angle: f(p, "angle", 0.0), distance: f(p, "distance", 10.0).clamp(1.0, 2000.0) },
@@ -98,7 +119,7 @@ pub fn params_for(id: &str, p: &Value) -> Option<FilterParams> {
             reduce_noise: f(p, "reduceNoise", 10.0).clamp(0.0, 100.0),
         },
         "filter.other.highPass" => FilterParams::HighPass { radius: f(p, "radius", 10.0).clamp(0.1, 1000.0) },
-        "filter.noise.addNoise" => FilterParams::AddNoise {
+        "filter.noise.addNoise" | "filter.artistic.noise" => FilterParams::AddNoise {
             amount: f(p, "amount", 12.5).clamp(0.1, 400.0),
             distribution: if s(p, "distribution", "uniform") == "gaussian" { Distribution::Gaussian } else { Distribution::Uniform },
             monochromatic: b(p, "monochromatic", false),
@@ -328,6 +349,26 @@ macro_rules! filter_cmd {
 /// The filter command specs.
 pub fn specs() -> Vec<CommandSpec> {
     vec![
+        filter_cmd!("filter.artistic.bloom", "Bloom…", ["Filter", "Artistic"], r##"{"radius":0.1..128=12,"threshold":0..0.99=0.7,"brightness":0..4=1}"##),
+        filter_cmd!(
+            "filter.artistic.crossFilter",
+            "Cross Filter…",
+            ["Filter", "Artistic"],
+            r##"{"radius":1..128=24,"threshold":0..0.99=0.8,"brightness":0..4=1,"count":2..8=4,"direction":-180..180=45}"##
+        ),
+        filter_cmd!(
+            "filter.artistic.chromaticAberrationZooming",
+            "Chromatic Aberration (Zooming)…",
+            ["Filter", "Artistic"],
+            r##"{"distance":0..20=3,"centerX":0..1=0.5,"centerY":0..1=0.5,"reverse":bool=false}"##
+        ),
+        filter_cmd!(
+            "filter.artistic.chromaticAberrationMoving",
+            "Chromatic Aberration (Moving)…",
+            ["Filter", "Artistic"],
+            r##"{"distance":0..20=3,"angle":-180..180=0,"reverse":bool=false}"##
+        ),
+        filter_cmd!("filter.artistic.noise", "Noise…", ["Filter", "Artistic"], r##"{"amount":0.1..100=12.5,"monochromatic":bool=false,"seed":u32=0}"##),
         filter_cmd!("filter.blur.gaussianBlur", "Gaussian Blur…", ["Filter", "Blur"], r##"{"radius":0.1..1000=1}"##),
         filter_cmd!("filter.blur.blur", "Blur", ["Filter", "Blur"], "{}"),
         filter_cmd!("filter.blur.blurMore", "Blur More", ["Filter", "Blur"], "{}"),

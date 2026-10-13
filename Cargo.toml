@@ -112,3 +112,27 @@ opt-level = 3
 opt-level = 3
 [profile.wasm-release.package.photocraft-paint]
 opt-level = 3
+
+[patch.crates-io]
+winit = { path = "vendor/winit" }
+
+[profile.android-preview]
+inherits = "release"
+lto = false
+codegen-units = 1
+opt-level = 2
+strip = "debuginfo"
+[profile.android-preview.build-override]
+codegen-units = 1
+[profile.android-preview.package.photocraft-ui-egui]
+opt-level = 1
+
+[profile.android-smoke]
+inherits = "dev"
+opt-level = 0
+debug = 0
+codegen-units = 4
+[profile.android-smoke.package."*"]
+opt-level = 0
+[profile.android-smoke.build-override]
+codegen-units = 1

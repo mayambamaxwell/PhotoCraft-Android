@@ -1,6 +1,10 @@
 //! Icons embedded and tinted at runtime; sources and licences are listed in `ATTRIBUTION.md`.
 
 pub static ICONS: &[(&str, &[u8])] = &[
+    ("tablet-save", include_bytes!("../../../assets/icons/tablet-save.svg")),
+    ("tablet-share", include_bytes!("../../../assets/icons/tablet-share.svg")),
+    ("tablet-feather", include_bytes!("../../../assets/icons/tablet-feather.svg")),
+    ("tablet-reference", include_bytes!("../../../assets/icons/tablet-reference.svg")),
     ("adjustment-layer", include_bytes!("../../../assets/icons/adjustment-layer.svg")),
     ("align-center", include_bytes!("../../../assets/icons/align-center.svg")),
     ("align-justify", include_bytes!("../../../assets/icons/align-justify.svg")),

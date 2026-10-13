@@ -359,6 +359,9 @@ fn build() -> Vec<CommandSpec> {
                     None => d,
                 };
                 let (w, h) = (px("width", 1920), px("height", 1080));
+                if cfg!(target_os = "android") && (w > 8192 || h > 8192 || u64::from(w) * u64::from(h) > 24_000_000) {
+                    return Err(EngineError::Other("Android canvases are limited to 8192 pixels per side and 24 megapixels. Choose a smaller canvas.".into()));
+                }
                 let mode = color_mode(p.get("mode").and_then(Value::as_str).unwrap_or("rgb")).unwrap_or(ColorMode::Rgb);
                 let depth = sample_type(p.get("depth").and_then(Value::as_u64).unwrap_or(8)).unwrap_or(SampleType::U8);
                 let name = p.get("name").and_then(Value::as_str).unwrap_or("Untitled").to_string();
@@ -588,7 +591,7 @@ fn build() -> Vec<CommandSpec> {
             "Layer Properties",
             [],
             None,
-            r##"{"layer":id?,"name":str?,"visible":bool?,"opacity":0..1?,"fill":0..1?,"blend":"Multiply|…"?,"clipped":bool?,"locked":bool?,"locks":{"transparency","pixels","position","artboard","all":bool}?,"channels":[bool,…]? (Advanced Blending: which colour channels blend, R G B / C M Y K / L a b)}"##,
+            r##"{"layer":id?,"name":str?,"visible":bool?,"opacity":0..1?,"fill":0..1?,"blend":"Multiply|…"?,"clipped":bool?,"reference":bool?,"locked":bool?,"locks":{"transparency","pixels","position","artboard","all":bool}?,"channels":[bool,…]? (Advanced Blending: which colour channels blend, R G B / C M Y K / L a b)}"##,
             has_layer,
             |s, p| {
                 let id = layer_param(s, p)?;
@@ -614,6 +617,9 @@ fn build() -> Vec<CommandSpec> {
                     }
                     if let Some(v) = p.get("blend").and_then(Value::as_str) {
                         l.blend = blend_from_str(v).ok_or_else(|| bad("layer.setProps", format!("unknown blend mode `{v}`")))?;
+                    }
+                    if let Some(v) = p.get("reference").and_then(Value::as_bool) {
+                        l.reference = v;
                     }
                     if let Some(v) = p.get("clipped").and_then(Value::as_bool) {
                         l.clipped = v;

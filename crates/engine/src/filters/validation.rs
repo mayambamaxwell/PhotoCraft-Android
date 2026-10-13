@@ -38,6 +38,18 @@ impl Rule {
 fn fields(id: &str) -> Option<&'static [(&'static str, Rule)]> {
     use Rule::{Bool, Choice, Number, Unsigned};
     Some(match id {
+        "filter.artistic.bloom" => &[("radius", Number(0.1, 128.)), ("threshold", Number(0., 0.99)), ("brightness", Number(0., 4.))],
+        "filter.artistic.crossFilter" => &[
+            ("radius", Number(1., 128.)),
+            ("threshold", Number(0., 0.99)),
+            ("brightness", Number(0., 4.)),
+            ("count", Number(2., 8.)),
+            ("direction", Number(-180., 180.)),
+        ],
+        "filter.artistic.chromaticAberrationZooming" => {
+            &[("distance", Number(0., 20.)), ("centerX", Number(0., 1.)), ("centerY", Number(0., 1.)), ("reverse", Bool)]
+        }
+        "filter.artistic.chromaticAberrationMoving" => &[("distance", Number(0., 20.)), ("angle", Number(-180., 180.)), ("reverse", Bool)],
         "filter.blur.gaussianBlur" | "filter.other.highPass" => &[("radius", Number(0.1, 1000.0))],
         "filter.blur.boxBlur" => &[("radius", Number(1.0, 2000.0))],
         "filter.blur.motionBlur" => &[("angle", Number(-360.0, 360.0)), ("distance", Number(1.0, 2000.0))],
@@ -51,7 +63,7 @@ fn fields(id: &str) -> Option<&'static [(&'static str, Rule)]> {
         "filter.blur.surfaceBlur" => &[("radius", Number(1.0, 100.0)), ("threshold", Number(2.0, 255.0))],
         "filter.sharpen.unsharpMask" => &[("amount", Number(1.0, 500.0)), ("radius", Number(0.1, 1000.0)), ("threshold", Number(0.0, 255.0))],
         "filter.sharpen.smartSharpen" => &[("amount", Number(1.0, 500.0)), ("radius", Number(0.1, 64.0)), ("reduceNoise", Number(0.0, 100.0))],
-        "filter.noise.addNoise" => {
+        "filter.noise.addNoise" | "filter.artistic.noise" => {
             &[("amount", Number(0.1, 400.0)), ("distribution", Choice("uniform|gaussian")), ("monochromatic", Bool), ("seed", Unsigned(u32::MAX as u64))]
         }
         "filter.noise.median" => &[("radius", Number(1.0, 500.0))],
