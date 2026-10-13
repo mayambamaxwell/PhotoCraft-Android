@@ -13,7 +13,7 @@ On the release page, expand **Assets** and choose:
 - **PhotoCraft.apk** to install. Android 10+; ARM64 devices.
 - **PhotoCraft-Android-source.zip** for the complete source used for this APK, including the Android host, shared editor changes, patched winit, build instructions, validation notes and licenses.
 
-**Use the named Android source ZIP to build the Android app.** The repository checkout and GitHub-generated “Source code” ZIP/tarball currently contain upstream code and this download page. Android changes are distributed in the attached full source snapshot until they can be committed to the repository.
+The complete Android source is now available on the [**android branch**](https://github.com/mayambamaxwell/PhotoCraft-Android/tree/android). Clone it with `git clone --branch android https://github.com/mayambamaxwell/PhotoCraft-Android.git`, or use the named **PhotoCraft-Android-source.zip** release asset. The default `main` branch and the existing Preview 7 tag retain upstream history and this download page; GitHub-generated source archives for that tag do not include the Android port.
 
 ## Features added for Android
 
@@ -29,7 +29,7 @@ On the release page, expand **Assets** and choose:
 
 ## Build the Android source
 
-Download and unzip **PhotoCraft-Android-source.zip** from the release above. Start with **apps/photocraft-android/README.md** inside the extracted **PhotoCraft-Android-Source** folder. Build metadata is in **BUILD-INFO.json**, test evidence in **VALIDATION.md**, and release signing guidance in **RELEASE-GUIDE.md** beside that README.
+Clone the **android** branch and start with [**apps/photocraft-android/README.md**](https://github.com/mayambamaxwell/PhotoCraft-Android/blob/android/apps/photocraft-android/README.md). Alternatively, unzip **PhotoCraft-Android-source.zip** and open the same path inside **PhotoCraft-Android-Source**. Build metadata is in **BUILD-INFO.json**, test evidence in **VALIDATION.md**, and release signing guidance in **RELEASE-GUIDE.md** beside that README.
 
 The Android snapshot is based on upstream commit **c1bd296dcf8429ef084cc357113c08b56caead67**. Its dependency revisions and build requirements are documented in the snapshot. No signing keys are included.
 
